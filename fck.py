@@ -3,6 +3,8 @@
 import sys # sys.argv
 import os # os.rename
 
+import binascii
+
 from glob import glob
 from zlib import crc32
 
@@ -51,6 +53,12 @@ def checksum(filename):
     
   with open(filename) as f:
     return hex(crc32(f.read()) & mask)[2:-1]
+    #return str(crc32(f.read()) & 0xffffffff)
+
+def CRC32_from_file(filename):
+    buf = open(filename,'rb').read()
+    buf = (binascii.crc32(buf) & 0xFFFFFFFF)
+    return "%08X" % buf
         
 #files = glob('*.mkv')
 
@@ -61,7 +69,12 @@ filename = sys.argv[1]
 
 filename_parts = filename.split('.')
 filename_parts_count = len(filename_parts)
-cksum = checksum(sys.argv[1])
+#cksum = checksum(sys.argv[1])
+cksum = CRC32_from_file(sys.argv[1])
+
+#print cksum
+#print cksum2
+#sys.exit("Just, testing...")
 
 filename_parts[filename_parts_count - 2] += "_[" + str.upper(cksum) + "]" # + filename_parts[filename_parts_count - 1]
 filename_new = '.'.join(filename_parts)
