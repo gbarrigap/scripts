@@ -21,8 +21,18 @@
 # This scripts should be used to create or check CRC32 hashes
 # associated to the file(s) specified by the user.
 #
+# Usage: see function "setup_parser".
+#
+
+#
+# @todo: On check, determine which filenames are properly formatted
+#        with a CRC32 hash, to work with. Assume upper and lower case,
+#        and also the existence or non existence of delimiters,
+#        such as [], {}, (), or the like.
+#
 
 import sys # sys.argv
+import argparse
 import os # os.rename
 
 import binascii
@@ -33,31 +43,16 @@ from zlib import crc32
 import subprocess # Replaces os.command
 
 # Init some global variables.
-DEBUG = True
+DEBUG = False
 
-usage_message  = '''\
-Usage: fck.py [command] [options] [file1 [file2 [...]]]
+# check  = True
+# create = False
 
-Commands:
-    check             Perform a check on the file(s). Default.
-    create            Create the checksum on the file(s)
-
-Options:
-    --dir=PATH      path of the directory with the files.
-    --limit=LIMIT   how many files will be processed.
-    --ask           asks for user confirmation of each action.
-    --yes           on verbose execution, asumes "yes" to all prompts.
-    --quiet         run silently (overrides '--ask').
-'''
-
-check  = True
-create = False
-
-files_dir = False
-limit     = 0
-ask       = False
-yes       = False
-quiet     = False
+# files_dir = False
+# limit     = 0
+# ask       = False
+# yes       = False
+# quiet     = False
 
 if DEBUG: print sys.argv
 
@@ -161,7 +156,10 @@ def check_operation(filename = False):
         for filename in sorted(filenames):
             check_file(filename)
 
-def create_operation(filename = False):
+def generate_operation(filename = False):
+    print "generate_operation"
+    sys.exit()
+
     global files_dir
 
     if filename:
@@ -173,32 +171,38 @@ def create_operation(filename = False):
         for filename in sorted(filenames):
             create_hash(filename)
 
-#sys.exit(usage_message)
+def check_op(args):
+    print "check_operation"
+    print args.operation_mode
+    print args.verbose
 
-for n in range(1, len(sys.argv)):
-    arg = sys.argv[n]
+def generate_op(args):
+    print "generate_op"
+    print args
 
-    if   arg == "--check":  check = True
-    elif arg == "--create": create = True
+def setup_parser():
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest = "operation_mode")
 
-    elif arg.startswith("--dir="):   files_dir = arg.split("--dir=")[1]
-    elif arg.startswith("--limit="): limit = int(arg.split("--limit=")[1])
+    # Check operation
+    parser_check = subparsers.add_parser("check", help = "Performs a check")
+    parser_check.add_argument("-n", "--from-filename", action = "store_true")
+    parser_check.add_argument("-f", "--from-file",     action = "store_true")
+    parser_check.add_argument("-v", "--verbose",       action = "store_true", help = "Shows [OK] and [Fail] results.")
+    parser_check.set_defaults(func=check_op)
 
-    elif arg == "--recursive": recursive = True
-    elif arg == "--ask":       ask = True
-    elif arg == "--yes":       yes = True
-    elif arg == "--quiet":     quiet = True
+    # Generate operation
+    parser_generate = subparsers.add_parser("generate", help = "Generate hashes and rename files accordingly.")
+    parser_generate.add_argument("-n", "--to-filename", action = "store_true")
+    parser_generate.add_argument("-f", "--to-file",     action = "store_true")
+    parser_generate.add_argument("-y", "--yes",         action = "store_true")
+    parser_generate.add_argument("-q", "--quiet",       action = "store_true")
+    parser_generate.set_defaults(func=generate_op)
 
-    else: sys.exit(usage_message)
-        
-# @todo: Initialize what is necessary.
-filename = sys.argv[1]
+    return parser
 
-if not create:
-    check_operation()
+parser = setup_parser()
+args = parser.parse_args()
+args.func(args)
 
-elif create:
-    create_operation()
-
-else:
-    sys.exit(usage_message)
+sys.exit(1)
