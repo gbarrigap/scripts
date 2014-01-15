@@ -36,6 +36,7 @@ import argparse
 import os # os.rename
 
 import binascii
+import re
 
 from glob import glob
 from zlib import crc32
@@ -44,6 +45,7 @@ import subprocess # Replaces os.command
 
 # Init some global variables.
 DEBUG = False
+CRC32_REGEX = "[0-9A-Fa-f]{8}"
 
 # check  = True
 # create = False
@@ -136,6 +138,14 @@ def create_hash(filename):
         os.rename(filename, filename_new)
         print "{} renamed to {}".format(filename, filename_new)
 
+def get_hashed_filename(filename, cksum):
+    filename_parts = filename.split('.')
+    filename_parts_count = len(filename_parts)
+    filename_parts[filename_parts_count - 2] += "_[" + str.upper(cksum) + "]" # + filename_parts[filename_parts_count - 1]
+    filename_new = '.'.join(filename_parts)
+
+    return filename_new
+
 def get_filenames_from_path(files_path):
     # Sanitizes directory name.
     if not files_path.endswith("/"): files_path += "/"
@@ -156,6 +166,13 @@ def check_operation(filename = False):
         for filename in sorted(filenames):
             check_file(filename)
 
+def is_hashed(filename):
+    return bool(re.search(CRC32_REGEX, filename))
+    # return re.search(CRC32_REGEX, filename)
+
+def is_hash_ok(filename):
+    return crc32_nanito(filename).upper() in filename.upper()
+
 def generate_operation(filename = False):
     print "generate_operation"
     sys.exit()
@@ -171,14 +188,62 @@ def generate_operation(filename = False):
         for filename in sorted(filenames):
             create_hash(filename)
 
+def rename_file(filename_old, filename_new):
+    # print "rename_file({}, {})".format(filename_old, filename_new)
+    os.rename(filename_old, filename_new)
+
+def checkable_filenames(filenames, force_check):
+    for filename in filenames:
+        if os.path.isfile(filename) and (force_check or is_hashed(filename)):
+            yield filename
+
 def check_op(args):
-    print "check_operation"
-    print args.operation_mode
-    print args.verbose
+    count = 0
+    for checkable_filename in checkable_filenames(args.FILES, args.force):
+        count += 1
+
+        if is_hash_ok(checkable_filename):
+            
+            if args.verbose:
+                print "{} [OK]".format(checkable_filename)
+
+        else: # Hash not OK.
+            print "{} [Fail]".format(checkable_filename)
+    
+    if not count:
+        print "No hashed files found!"
+
+def filenames_for_generation(filenames, skip_hashed_filenames):
+    for filename in filenames:
+        if os.path.isfile(filename):
+            if skip_hashed_filenames and is_hashed(filename):
+                continue
+            else:
+                yield filename
 
 def generate_op(args):
-    print "generate_op"
-    print args
+    count = 0
+    for filename in filenames_for_generation(args.FILES, args.skip):
+        count += 1
+        cksum = crc32_nanito(filename)
+        filename_with_hash = get_hashed_filename(filename, cksum)
+
+        if not args.quiet:
+            msg = "{} to {}".format(filename, filename_with_hash)
+
+            if not args.yes:
+                if confirm(msg):
+                    rename_file(filename, filename_with_hash)
+            
+            else: # --yes
+                print msg
+                rename_file(filename, filename_with_hash)
+        
+        else: # --quiet
+            rename_file(filename, filename_with_hash)
+
+    if not count and not args.quiet:
+        print "No hashes generated!"
 
 def setup_parser():
     parser = argparse.ArgumentParser()
@@ -189,20 +254,31 @@ def setup_parser():
     parser_check.add_argument("-n", "--from-filename", action = "store_true")
     parser_check.add_argument("-f", "--from-file",     action = "store_true")
     parser_check.add_argument("-v", "--verbose",       action = "store_true", help = "Shows [OK] and [Fail] results.")
-    parser_check.set_defaults(func=check_op)
+    parser_check.add_argument("-F", "--force",         action = "store_true", help = "Check files with no apparent hash present.")
+    parser_check.add_argument("FILES", nargs = "+")
+    parser_check.set_defaults(func = check_op)
 
     # Generate operation
     parser_generate = subparsers.add_parser("generate", help = "Generate hashes and rename files accordingly.")
     parser_generate.add_argument("-n", "--to-filename", action = "store_true")
     parser_generate.add_argument("-f", "--to-file",     action = "store_true")
-    parser_generate.add_argument("-y", "--yes",         action = "store_true")
-    parser_generate.add_argument("-q", "--quiet",       action = "store_true")
-    parser_generate.set_defaults(func=generate_op)
+    parser_generate.add_argument("-s", "--skip",        action = "store_true", help = "Does not process files already hashed.")
+    
+    parser_generate_yes_quiet_group = parser_generate.add_mutually_exclusive_group()
+    parser_generate_yes_quiet_group.add_argument("-y", "--yes",         action = "store_true")
+    parser_generate_yes_quiet_group.add_argument("-q", "--quiet",       action = "store_true", help = "Does not show anything. Implies --yes.")
+    
+    parser_generate.add_argument("FILES", nargs = "+")
+    parser_generate.set_defaults(func = generate_op)
+
+    # Update operation
+    # --update-all
+    # --update-some
 
     return parser
 
 parser = setup_parser()
 args = parser.parse_args()
-args.func(args)
+args.func(args) # Executes the default function associated to the chosen operation.
 
 sys.exit(1)
