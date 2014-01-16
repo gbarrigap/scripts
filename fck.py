@@ -27,27 +27,12 @@
 import sys
 import argparse
 import os
-
-# import binascii
 import re
-
-# from glob import glob
-# from zlib import crc32
-
 import subprocess # Replaces os.command
 
 # Init some global variables.
 DEBUG = False
 CRC32_REGEX = "[0-9A-Fa-f]{8}"
-
-# check  = True
-# create = False
-
-# files_dir = False
-# limit     = 0
-# ask       = False
-# yes       = False
-# quiet     = False
 
 if DEBUG: print sys.argv
 
@@ -91,46 +76,10 @@ def confirm(prompt=None, resp=False):
         if ans == 'n' or ans == 'N':
             return False
 
-# def checksum(filename):
-#   mask = 0xffffffff
-    
-#   with open(filename) as f:
-#     return hex(crc32(f.read()) & mask)[2:-1]
-#     #return str(crc32(f.read()) & 0xffffffff)
-
-# def CRC32_from_file(filename):
-#     buf = open(filename,'rb').read()
-#     buf = (binascii.crc32(buf) & 0xFFFFFFFF)
-#     return "%08X" % buf
-
-# def crc32_nanito(filename):
 def crc32(filename):
     file_crc32 = subprocess.check_output(["crc32", filename])
     file_crc32 = file_crc32.rstrip() # Removes the newline character
     return str.upper(file_crc32)
-
-# def check_file(filename):
-#     cksum = crc32_nanito(filename)
-#     result = "[OK]" if cksum.upper() in filename.upper() else "[Fail]"
-#     print "{} {}".format(filename, result)
-
-# def create_hash(filename):
-#     filename_parts = filename.split('.')
-#     filename_parts_count = len(filename_parts)
-#     cksum = crc32_nanito(filename)
-
-#     filename_parts[filename_parts_count - 2] += "_[" + str.upper(cksum) + "]" # + filename_parts[filename_parts_count - 1]
-#     filename_new = '.'.join(filename_parts)
-
-#     if ask:
-#         prompt_string = 'The file "' + filename + '" will be renamed to "' + filename_new + '". Continue'
-
-#         if confirm(prompt = prompt_string):
-#           os.rename(filename, filename_new)
-
-#     else:
-#         os.rename(filename, filename_new)
-#         print "{} renamed to {}".format(filename, filename_new)
 
 def get_hashed_filename(filename, cksum):
     filename_parts = filename.split('.')
@@ -140,46 +89,11 @@ def get_hashed_filename(filename, cksum):
 
     return filename_new
 
-# def get_filenames_from_path(files_path):
-#     # Sanitizes directory name.
-#     if not files_path.endswith("/"): files_path += "/"
-
-#     filenames = glob("{}*".format(files_path)) # Get all the files of the given directory.
-
-#     return filenames
-
-# def check_operation(filename = False):
-#     global files_dir
-
-#     if filename:
-#         check_file(filename)
-
-#     elif files_dir and os.path.isdir(files_dir):
-#         filenames = get_filenames_from_path(files_dir)
-
-#         for filename in sorted(filenames):
-#             check_file(filename)
-
 def is_hashed(filename):
     return re.search(CRC32_REGEX, filename)
 
 def is_hash_ok(filename):
     return crc32(filename).upper() in filename.upper()
-
-# def generate_operation(filename = False):
-#     print "generate_operation"
-#     sys.exit()
-
-#     global files_dir
-
-#     if filename:
-#         create_hash(filename)
-
-#     elif files_dir and os.path.isdir(files_dir):
-#         filenames = get_filenames_from_path(files_dir)
-
-#         for filename in sorted(filenames):
-#             create_hash(filename)
 
 def rename_file(filename_old, filename_new, message = False):
     os.rename(filename_old, filename_new)
