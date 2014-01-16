@@ -24,22 +24,15 @@
 # Usage: see function "setup_parser".
 #
 
-#
-# @todo: On check, determine which filenames are properly formatted
-#        with a CRC32 hash, to work with. Assume upper and lower case,
-#        and also the existence or non existence of delimiters,
-#        such as [], {}, (), or the like.
-#
-
-import sys # sys.argv
+import sys
 import argparse
-import os # os.rename
+import os
 
-import binascii
+# import binascii
 import re
 
-from glob import glob
-from zlib import crc32
+# from glob import glob
+# from zlib import crc32
 
 import subprocess # Replaces os.command
 
@@ -98,45 +91,46 @@ def confirm(prompt=None, resp=False):
         if ans == 'n' or ans == 'N':
             return False
 
-def checksum(filename):
-  mask = 0xffffffff
+# def checksum(filename):
+#   mask = 0xffffffff
     
-  with open(filename) as f:
-    return hex(crc32(f.read()) & mask)[2:-1]
-    #return str(crc32(f.read()) & 0xffffffff)
+#   with open(filename) as f:
+#     return hex(crc32(f.read()) & mask)[2:-1]
+#     #return str(crc32(f.read()) & 0xffffffff)
 
-def CRC32_from_file(filename):
-    buf = open(filename,'rb').read()
-    buf = (binascii.crc32(buf) & 0xFFFFFFFF)
-    return "%08X" % buf
+# def CRC32_from_file(filename):
+#     buf = open(filename,'rb').read()
+#     buf = (binascii.crc32(buf) & 0xFFFFFFFF)
+#     return "%08X" % buf
 
-def crc32_nanito(filename):
+# def crc32_nanito(filename):
+def crc32(filename):
     file_crc32 = subprocess.check_output(["crc32", filename])
     file_crc32 = file_crc32.rstrip() # Removes the newline character
     return str.upper(file_crc32)
 
-def check_file(filename):
-    cksum = crc32_nanito(filename)
-    result = "[OK]" if cksum.upper() in filename.upper() else "[Fail]"
-    print "{} {}".format(filename, result)
+# def check_file(filename):
+#     cksum = crc32_nanito(filename)
+#     result = "[OK]" if cksum.upper() in filename.upper() else "[Fail]"
+#     print "{} {}".format(filename, result)
 
-def create_hash(filename):
-    filename_parts = filename.split('.')
-    filename_parts_count = len(filename_parts)
-    cksum = crc32_nanito(filename)
+# def create_hash(filename):
+#     filename_parts = filename.split('.')
+#     filename_parts_count = len(filename_parts)
+#     cksum = crc32_nanito(filename)
 
-    filename_parts[filename_parts_count - 2] += "_[" + str.upper(cksum) + "]" # + filename_parts[filename_parts_count - 1]
-    filename_new = '.'.join(filename_parts)
+#     filename_parts[filename_parts_count - 2] += "_[" + str.upper(cksum) + "]" # + filename_parts[filename_parts_count - 1]
+#     filename_new = '.'.join(filename_parts)
 
-    if ask:
-        prompt_string = 'The file "' + filename + '" will be renamed to "' + filename_new + '". Continue'
+#     if ask:
+#         prompt_string = 'The file "' + filename + '" will be renamed to "' + filename_new + '". Continue'
 
-        if confirm(prompt = prompt_string):
-          os.rename(filename, filename_new)
+#         if confirm(prompt = prompt_string):
+#           os.rename(filename, filename_new)
 
-    else:
-        os.rename(filename, filename_new)
-        print "{} renamed to {}".format(filename, filename_new)
+#     else:
+#         os.rename(filename, filename_new)
+#         print "{} renamed to {}".format(filename, filename_new)
 
 def get_hashed_filename(filename, cksum):
     filename_parts = filename.split('.')
@@ -146,51 +140,51 @@ def get_hashed_filename(filename, cksum):
 
     return filename_new
 
-def get_filenames_from_path(files_path):
-    # Sanitizes directory name.
-    if not files_path.endswith("/"): files_path += "/"
+# def get_filenames_from_path(files_path):
+#     # Sanitizes directory name.
+#     if not files_path.endswith("/"): files_path += "/"
 
-    filenames = glob("{}*".format(files_path)) # Get all the files of the given directory.
+#     filenames = glob("{}*".format(files_path)) # Get all the files of the given directory.
 
-    return filenames
+#     return filenames
 
-def check_operation(filename = False):
-    global files_dir
+# def check_operation(filename = False):
+#     global files_dir
 
-    if filename:
-        check_file(filename)
+#     if filename:
+#         check_file(filename)
 
-    elif files_dir and os.path.isdir(files_dir):
-        filenames = get_filenames_from_path(files_dir)
+#     elif files_dir and os.path.isdir(files_dir):
+#         filenames = get_filenames_from_path(files_dir)
 
-        for filename in sorted(filenames):
-            check_file(filename)
+#         for filename in sorted(filenames):
+#             check_file(filename)
 
 def is_hashed(filename):
-    return bool(re.search(CRC32_REGEX, filename))
-    # return re.search(CRC32_REGEX, filename)
+    return re.search(CRC32_REGEX, filename)
 
 def is_hash_ok(filename):
-    return crc32_nanito(filename).upper() in filename.upper()
+    return crc32(filename).upper() in filename.upper()
 
-def generate_operation(filename = False):
-    print "generate_operation"
-    sys.exit()
+# def generate_operation(filename = False):
+#     print "generate_operation"
+#     sys.exit()
 
-    global files_dir
+#     global files_dir
 
-    if filename:
-        create_hash(filename)
+#     if filename:
+#         create_hash(filename)
 
-    elif files_dir and os.path.isdir(files_dir):
-        filenames = get_filenames_from_path(files_dir)
+#     elif files_dir and os.path.isdir(files_dir):
+#         filenames = get_filenames_from_path(files_dir)
 
-        for filename in sorted(filenames):
-            create_hash(filename)
+#         for filename in sorted(filenames):
+#             create_hash(filename)
 
-def rename_file(filename_old, filename_new):
-    # print "rename_file({}, {})".format(filename_old, filename_new)
+def rename_file(filename_old, filename_new, message = False):
     os.rename(filename_old, filename_new)
+
+    if message: print message
 
 def checkable_filenames(filenames, force_check):
     for filename in filenames:
@@ -198,19 +192,16 @@ def checkable_filenames(filenames, force_check):
             yield filename
 
 def check_op(args):
-    count = 0
-    for checkable_filename in checkable_filenames(args.FILES, args.force):
-        count += 1
+    filenames = list(checkable_filenames(args.FILES, args.force))
 
-        if is_hash_ok(checkable_filename):
-            
-            if args.verbose:
-                print "{} [OK]".format(checkable_filename)
+    for filename in filenames:
+        if not is_hash_ok(filename):
+            print "{} [Fail]".format(filename)
 
-        else: # Hash not OK.
-            print "{} [Fail]".format(checkable_filename)
+        elif args.verbose:
+            print "{} [OK]".format(filename)
     
-    if not count:
+    if not len(filenames):
         print "No hashed files found!"
 
 def filenames_for_generation(filenames, skip_hashed_filenames):
@@ -222,27 +213,23 @@ def filenames_for_generation(filenames, skip_hashed_filenames):
                 yield filename
 
 def generate_op(args):
-    count = 0
-    for filename in filenames_for_generation(args.FILES, args.skip):
-        count += 1
-        cksum = crc32_nanito(filename)
+    filenames = list(filenames_for_generation(args.FILES, args.skip))
+
+    for filename in filenames:
+        cksum = crc32(filename)
         filename_with_hash = get_hashed_filename(filename, cksum)
+        message = "{} to {}".format(filename, filename_with_hash)
 
-        if not args.quiet:
-            msg = "{} to {}".format(filename, filename_with_hash)
-
-            if not args.yes:
-                if confirm(msg):
-                    rename_file(filename, filename_with_hash)
-            
-            else: # --yes
-                print msg
-                rename_file(filename, filename_with_hash)
+        if args.quiet:
+            rename_file(filename, filename_with_hash)
         
-        else: # --quiet
+        elif args.yes:
+            rename_file(filename, filename_with_hash, message)
+        
+        elif confirm(message):
             rename_file(filename, filename_with_hash)
 
-    if not count and not args.quiet:
+    if not len(filenames):
         print "No hashes generated!"
 
 def setup_parser():
