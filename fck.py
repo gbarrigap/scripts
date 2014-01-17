@@ -106,28 +106,61 @@ def checkable_filenames(filenames, force_check):
             yield filename
 
 def check_op(args):
-    filenames = list(checkable_filenames(args.FILES, args.force))
+    count_ok    = 0
+    count_fail  = 0
 
-    for filename in filenames:
-        if not is_hash_ok(filename):
+    for filename in checkable_filenames(args.FILES, args.force):
+        if is_hash_ok(filename):
+            count_ok += 1
+
+            if args.verbose:
+                print "{} [OK]".format(filename)
+
+        else:
+            count_fail += 1
             print "{} [Fail]".format(filename)
 
-        elif args.verbose:
-            print "{} [OK]".format(filename)
-    
-    if not len(filenames):
+    if not (count_ok + count_fail):
         print "No hashed files found!"
+    else:
+        print "{} files processed, {} OK, {} Failed".format(count_ok + count_fail, count_ok, count_fail)
 
-def filenames_for_generation(filenames, skip_hashed_filenames):
-    for filename in filenames:
-        if os.path.isfile(filename):
-            if skip_hashed_filenames and is_hashed(filename):
-                continue
-            else:
-                yield filename
+# def filenames_for_generation(filenames, skip_hashed_filenames):
+#     for filename in filenames:
+#         if os.path.isfile(filename):
+#             if skip_hashed_filenames and is_hashed(filename):
+#                 continue
+#             else:
+#                 yield filename
+
+# Some filtering generators.
+# def valid_files(filenames):
+#     for f in filenames:
+#         if os.path.isfile(f):
+#             yield f
+
+# def not_hashed_filenames(filenames):
+#     for f in valid_files(filenames):
+#         if not is_hashed(f):
+#             yield f
+
+# def hashed_filenames(filenames):
+#     for f in filenames:
+#         if is_hashed(f):
+#             yield f
+
+def valid_filenames(filename):
+    return os.path.isfile(filename)
+
+def filenames_with_hash(filename):
+    return os.path.isfile(filename) and is_hashed(filename)
+
+def filenames_without_hash(filename):
+    return os.path.isfile(filename) and not is_hashed(filename)
 
 def generate_op(args):
-    filenames = list(filenames_for_generation(args.FILES, args.skip))
+    # If --skip, the script will not work on files already hashed.
+    filenames = filter(filenames_without_hash if args.skip else valid_filenames, args.FILES)
 
     for filename in filenames:
         cksum = crc32(filename)
@@ -142,9 +175,6 @@ def generate_op(args):
         
         elif confirm(message):
             rename_file(filename, filename_with_hash)
-
-    if not len(filenames):
-        print "No hashes generated!"
 
 def setup_parser():
     parser = argparse.ArgumentParser()
