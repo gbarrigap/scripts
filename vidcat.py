@@ -1,5 +1,28 @@
 #!/usr/bin/python
 
+#
+# Copyright 2013 Guillermo Barriga Placencia <gbarrigap@yahoo.es>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# 
+
+# 
+# This script, should be used to concatenate video files obtained
+# from a streamed source, such as:
+# curl http://edge-30-us.edge.mdstrm.com/media-us/_definst_/smil:52a338f4362d187131000005/media_b623000_[0-247].ts?access_token=53e7035668cec94c17f1649a27cff2d4-9dbc290e842d6c80da12a499a5c3643d -o "#1.ts"
+# 
+
 import sys # sys.argv
 import os # os.listdir
 import re
@@ -44,6 +67,10 @@ Usage: vidcat.py --dir=PATH --out=FILENAME [--ext=EXT] [--limit=LIMIT] [--ask] [
     --quiet             -q               run silently (overrides '--ask').
 '''
 
+def show_help():
+  print usage_message
+  sys.exit(0)
+
 # Init some global variables.
 limit = 0
 ask   = False
@@ -70,6 +97,7 @@ for n in range(1, len(sys.argv)):
   elif arg.startswith("--limit="): limit = int(arg.split("--limit=")[1])
   elif arg == "--ask":             ask = True
   elif arg == "--quiet":           quiet = True
+  elif arg == "--help":            show_help()
   else:                            sys.exit(usage_message)
 
 files = os.listdir(vids_dir)
@@ -105,4 +133,7 @@ for n in range(files_count):
   processed_files_count += 1
   if not quiet: print "[{}/{}]".format(str(processed_files_count).rjust(files_count_char_count), files_count)
 
-if not quiet: sys.exit("{} files where successfully processed. Bye!".format(processed_files_count))
+if not quiet: print "{} files where successfully processed. Bye!".format(processed_files_count)
+
+sys.exit(0)
+

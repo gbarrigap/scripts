@@ -29,7 +29,6 @@ import argparse
 import os
 import re
 import subprocess # Replaces os.command
-import binascii # binascii.crc32()
 
 # Init some global variables.
 DEBUG = False
@@ -78,14 +77,6 @@ def confirm(prompt=None, resp=False):
             return False
 
 def crc32(filename):
-    print "Running experimental version..."
-
-    with open(filename) as input_file:
-        cksum_dec = binascii.crc32(input_file.read())
-        cksum_hex = '%08X' % (cksum_dec & 0xffffffff)
-        return cksum_hex
-
-def crc32_old(filename):
     file_crc32 = subprocess.check_output(["crc32", filename])
     file_crc32 = file_crc32.rstrip() # Removes the newline character
     return str.upper(file_crc32)
