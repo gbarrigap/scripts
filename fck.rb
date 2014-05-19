@@ -81,8 +81,7 @@ require "trollop"
 DEBUG = false
 CRC32_REGEX = /[0-9A-Fa-f]{8}/
 DEFAULT_DELIMITER = "_"
-DEFAULT_FILE_CHUNK_SIZE = 1024*1024*30 #1024*1024*100 # 10MB
-DEFAULT_PROGRESS_STEP = 20 # BLA BLAH...
+DEFAULT_FILE_CHUNK_SIZE = 1024*1024*30 # 30MB
 
 #
 # Extensions to the *String* class,
@@ -120,7 +119,34 @@ class File
 
 end
 
-def crc32(filename, chunk_size = DEFAULT_FILE_CHUNK_SIZE)
+#
+# @todo document this code!
+#
+def format_hash(hash)
+  hash.to_s(16).rjust(8, "0").upcase
+end
+
+#
+# @todo document this code!
+#
+def crc32_bigfile(filename, chunk_size = DEFAULT_FILE_CHUNK_SIZE)
+  #
+  # @todo document this process!
+  #
+  hash = 0;
+  open(filename, "rb") do |f|
+    f.each_chunk_partial(chunk_size) do |chunk|
+      hash = Zlib.crc32(chunk, hash)
+    end
+  end
+
+  format_hash(hash)
+end
+
+#
+# @todo document this code!
+#
+def crc32(filename)
 #  file_size = File.size(filename)
 #  total_hashes = file_size / chunk_size
 #  total_hashes += 1 if (file_size / chunk_size) # blah blah...
@@ -155,20 +181,25 @@ def crc32(filename, chunk_size = DEFAULT_FILE_CHUNK_SIZE)
 #  puts "combined_hash: #{combined_hash}" if DEBUG
 #  
 #  combined_hash
-  Zlib.crc32(open(filename).read()).to_s(16).rjust(8, "0").upcase
+  format_hash(Zlib.crc32(open(filename).read()))
 
 rescue => detail
-  puts "File too big; trying to calculate hash in chunks..."
-
-  combined_hash = 0;
-  open(filename, "rb") do |f|
-    remaining_hashes = total_hashes
-    f.each_chunk_partial(chunk_size) do |chunk|
-      combined_hash = Zlib.crc32(chunk, combined_hash)
-    end
+  case detail.message
+  when "file too big for single read"
+    puts "Big file; calculating in chunks..."
+    crc32_bigfile(filename)
+#
+#    combined_hash = 0;
+#    open(filename, "rb") do |f|
+#      f.each_chunk_partial(chunk_size) do |chunk|
+#        combined_hash = Zlib.crc32(chunk, combined_hash)
+#      end
+#    end
+#  
+#    combined_hash.to_s(16).rjust(8, "0").upcase
+  else
+    puts detail
   end
-
-  combined_hash.to_s(16).rjust(8, "0").upcase
 end
 
 def get_hashed_filename(filename, hash, delimiter)
@@ -256,13 +287,11 @@ cmd_opts = case cmd
       opt :delimiter, "Character to separate the hash from the filename", {:default => DEFAULT_DELIMITER}
       opt :dry_run, "Don't actually do anything.", :short => "-n"
       opt :quiet, "Run without showing progress."
-      opt :chunk_size, "Process file by chunks of this size (bytes)", { :default => DEFAULT_FILE_CHUNK_SIZE }
     end
   when "check" # parse check options
     Trollop::options do
       opt :verbose, "Print extra information."
       opt :force, "Check files with no apparent hash present"
-      opt :chunk_size, "Process file by chunks of this size (bytes)", { :default => DEFAULT_FILE_CHUNK_SIZE }
     end
   else
     Trollop::die "unknown subcommand #{cmd.inspect}"
