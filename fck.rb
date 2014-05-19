@@ -35,42 +35,65 @@
 #
 
 #
-# On this machine, these are the results of some arbitrary file chunk sizes,
-# using the command $time fck check file; given a 4687385841 bytes file.
+# The next table, summarizes the time it took to run this script
+# on the developer's computer, with some arbitrary file chunk sizes,
+# using the command
 #
-# crc32 native implementation reference results:
+#   $time fck check file
+# 
+# given a 4687385841 bytes size binary file.
+#
+# o----------------o-----------o-----------o-----------o---------o
+# |   chunk_size   |    real   |    user   |    sys    | verbose |
+# o----------------o-----------o-----------o-----------o---------o
+# | 512            |  2m4.402s | 0m33.944s |  0m8.296s |   NO    |
+# o----------------o-----------o-----------o-----------o---------o
+# | 1024           | 1m22.841s | 0m24.496s | 0m10.032s |   NO    |
+# o----------------o-----------o-----------o-----------o---------o
+# | 1024           | 1m58.320s | 0m24.860s | 0m10.636s |   NO    |
+# o----------------o-----------o-----------o-----------o---------o
+# | 1024           | 1m59.245s | 0m24.376s | 0m10.240s |   NO    |
+# o----------------o-----------o-----------o-----------o---------o
+# | 1024           | 5m28.082s | 1m17.564s | 0m38.836s |  YES    |
+# o----------------o-----------o-----------o-----------o---------o
+# | 1024*1024      | 1m26.112s | 0m15.084s | 0m11.148s |  YES    |
+# o----------------o-----------o-----------o-----------o---------o
+# | 1024*1024      | 1m25.959s | 0m15.444s | 0m11.132s |   NO    |
+# o----------------o-----------o-----------o-----------o---------o
+# | 1024*1024      | 1m50.710s | 0m15.320s | 0m11.380s |   NO    |
+# o----------------o-----------o-----------o-----------o---------o
+# | 1024*1024*10   | 1m28.748s | 0m12.252s | 0m11.380s |   NO    |
+# o----------------o-----------o-----------o-----------o---------o
+# | 1024*1024*20   | 1m28.150s | 0m11.088s | 0m11.188s |   NO    |
+# o----------------o-----------o-----------o-----------o---------o
+# | 1024*1024*40   | 1m31.976s | 0m11.640s |  0m8.868s |   NO    |
+# o----------------o-----------o-----------o-----------o---------o
+# | 1024*1024*100  | 1m34.911s | 0m10.188s | 0m11.580s |  YES    |
+# o----------------o-----------o-----------o-----------o---------o
+# | 1024*1024*100  | 1m55.434s | 0m10.092s | 0m11.472s |  YES    |
+# o----------------o-----------o-----------o-----------o---------o
+# | 1024*          | 000000000 | 000000000 | 000000000 |   NO    |
+# o----------------o-----------o-----------o-----------o---------o
+# 
+# Note: crc32 native implementation reference results:
+#
 #   real  1m31.887s
 #   user  0m14.148s
 #   sys 0m5.012s
 # 
-# o----------------o-----------o-----------o-----------o---------o
-# |   chunk_size   |    real   |    user   |    sys    | verbose |
-# o----------------o-----------o-----------o-----------o---------o
-# | 512            |  2m4.402s | 0m33.944s |  0m8.296s | NO
-# o----------------o-----------o-----------o-----------o---------o
-# | 1024           | 1m22.841s | 0m24.496s | 0m10.032s | NO      |
-#                    1m58.320s   0m24.860s   0m10.636s   NO
-#                    1m59.245s   0m24.376s   0m10.240s   NO
-# o----------------o-----------o-----------o-----------o---------o
-# | 1024           | 5m28.082s | 1m17.564s | 0m38.836s | YES     |
-# o----------------o-----------o-----------o-----------o---------o
-# | 1024*512       | 000000000 | 000000000 | 000000000 |
-# o----------------o-----------o-----------o-----------o---------o
-# | 1024*1024      | 1m26.112s | 0m15.084s | 0m11.148s | YES     |
-# o----------------o-----------o-----------o-----------o---------o
-# | 1024*1024      | 1m25.959s | 0m15.444s | 0m11.132s | NO      |
-#                    1m50.710s   0m15.320s   0m11.380s
-# | 1024*1024*10     1m28.748s   0m12.252s   0m11.380s
-# | 1024*1024*20     1m28.150s
-# | 1024*1024*40     1m31.976s
-# o----------------o-----------o-----------o-----------o---------o
-# | 1024*1024*100  | 1m34.911s | 0m10.188s | 0m11.580s | YES
-# o----------------o-----------o-----------o-----------o---------o
-# | 1024*1024*100  | 1m55.434s | 0m10.092s | 0m11.472s | YES     |
-# o----------------o-----------o-----------o-----------o---------o
-# | 1024*512       | 000000000 | 000000000 | 000000000 |
-# o----------------o-----------o-----------o-----------o---------o
-# 
+
+#
+# Version control table
+#
+# o------------o-------------------------------------------------------------o
+# |    Date    | Description                                                 |
+# o------------o-------------------------------------------------------------o
+# | 2014-05-18 | * Fixes big-file bug                                        |
+# |            | * Adds performance table                                    |
+# |            | * Adds version control table                                |
+# |            | * Adds documentation to some processes                      |
+# o------------o-------------------------------------------------------------o
+#
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
@@ -120,22 +143,37 @@ class File
 end
 
 #
-# @todo document this code!
+# @param hash An integer CRC32 hash
+# @return An uppercase string of the received number's hexadecimal value
 #
 def format_hash(hash)
   hash.to_s(16).rjust(8, "0").upcase
 end
 
 #
-# @todo document this code!
+# Calculates de CRC32 hash of a big file, by processing it by parts.
+#
+# @param filename The filename of the file to be processed
+# @param chunk_size The file will be processed by this size in bytes
+# @returns The CRC32 hash of the received file.
+# @see crc32()
 #
 def crc32_bigfile(filename, chunk_size = DEFAULT_FILE_CHUNK_SIZE)
-  #
-  # @todo document this process!
-  #
   hash = 0;
   open(filename, "rb") do |f|
     f.each_chunk_partial(chunk_size) do |chunk|
+      #
+      # Processes the opened file by reading it in chunks
+      # of the received value; if no value is received, it
+      # defaults to DEFAULT_FILE_CHUNK_SIZE.
+      #
+      # For each chunk, the hash is calculated using the
+      # function crc32(string, hash), where the string
+      # is the source of the calculation, the chunk, and
+      # the hash, is the accumulated result of the hash
+      # calculation. At the end of the iteration, this
+      # hash will contain the actual hash of the file.
+      #
       hash = Zlib.crc32(chunk, hash)
     end
   end
@@ -144,59 +182,17 @@ def crc32_bigfile(filename, chunk_size = DEFAULT_FILE_CHUNK_SIZE)
 end
 
 #
-# @todo document this code!
+# @param filename The filename of the file to be processed
+# @returns The uppercase string of the received file's CRC32 hash value.
+# @see crc32_bigfile
 #
 def crc32(filename)
-#  file_size = File.size(filename)
-#  total_hashes = file_size / chunk_size
-#  total_hashes += 1 if (file_size / chunk_size) # blah blah...
-#
-#  #total_progress_steps = total_hashes / DEFAULT_PROGRESS_STEP
-#  #total_progress_steps += 1 if (total_hashes / DEFAULT_PROGRESS_STEP) # blah, blah...
-#
-#  if (DEBUG)
-#    ARGV.clear
-#    puts "file_size: #{file_size} / chunk_size: #{chunk_size} / total_hashes: #{total_hashes}"
-#    puts "Hit enter to continue..."
-#    gets
-#  end
-#
-#  show_progress = true
-#
-#  combined_hash = 0;
-#  open(filename, "rb") do |f|
-#    remaining_hashes = total_hashes
-#    f.each_chunk_partial(chunk_size) do |chunk|
-#      combined_hash = Zlib.crc32(chunk, combined_hash)
-#
-#      if (show_progress)
-#        remaining_hashes -= 1
-#        puts "(#{remaining_hashes}/#{total_hashes}) [#{combined_hash}]"
-#      end
-#    end
-#  end
-#
-#  combined_hash = combined_hash.to_s(16).rjust(8, "0").upcase
-#
-#  puts "combined_hash: #{combined_hash}" if DEBUG
-#  
-#  combined_hash
   format_hash(Zlib.crc32(open(filename).read()))
-
 rescue => detail
   case detail.message
   when "file too big for single read"
     puts "Big file; calculating in chunks..."
     crc32_bigfile(filename)
-#
-#    combined_hash = 0;
-#    open(filename, "rb") do |f|
-#      f.each_chunk_partial(chunk_size) do |chunk|
-#        combined_hash = Zlib.crc32(chunk, combined_hash)
-#      end
-#    end
-#  
-#    combined_hash.to_s(16).rjust(8, "0").upcase
   else
     puts detail
   end
