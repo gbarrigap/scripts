@@ -104,7 +104,7 @@ require "trollop"
 DEBUG = false
 CRC32_REGEX = /[0-9A-Fa-f]{8}/
 DEFAULT_DELIMITER = "_"
-DEFAULT_FILE_CHUNK_SIZE = 1024*1024*30 # 30MB
+DEFAULT_FILE_CHUNK_SIZE = 1024*1024 # 30MB
 
 #
 # Extensions to the *String* class,
