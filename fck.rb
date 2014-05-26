@@ -88,10 +88,22 @@
 # o------------o-------------------------------------------------------------o
 # |    Date    | Description                                                 |
 # o------------o-------------------------------------------------------------o
-# | 2014-05-18 | * Fixes big-file bug                                        |
-# |            | * Adds performance table                                    |
-# |            | * Adds version control table                                |
-# |            | * Adds documentation to some processes                      |
+# | 2014-05-18 | * Fixes big-file bug.                                       |
+# |            | * Adds performance table.                                   |
+# |            | * Adds version control table.                               |
+# |            | * Adds documentation to some processes.                     |
+# o------------o-------------------------------------------------------------o
+# | 2014-05-24 | * Changes default behaviour to read file by chunks.         |
+# |            | * Adds single_read option.                                  |
+# |            | * Adds chunk_size option.                                   |
+# |            | * Adds verbose option on generation.                        |
+# |            | * Standardizes calls to option variables by using dot       |
+# |            |   notation (object like) instead of array keys.             |
+# |            | * Changes filenames and Trollop options to be global        |
+# |            |   variables, for easier access within functions.            |
+# |            | * Adds some minor documentation.                            |
+# o------------o-------------------------------------------------------------o
+# |            | *                                                           |
 # o------------o-------------------------------------------------------------o
 #
 
@@ -104,7 +116,7 @@ require "trollop"
 DEBUG = false
 CRC32_REGEX = /[0-9A-Fa-f]{8}/
 DEFAULT_DELIMITER = "_"
-DEFAULT_FILE_CHUNK_SIZE = 1024*1024 # 30MB
+DEFAULT_FILE_CHUNK_SIZE = 2**20 # 1MB
 
 #
 # Extensions to the *String* class,
@@ -136,10 +148,6 @@ class File
     yield self.read(chunk_size) until self.eof?
   end
 
-  def each_chunk_partial(chunk_size = DEFAULT_FILE_CHUNK_SIZE)
-    yield self.read(chunk_size) until self.eof?
-  end
-
 end
 
 #
@@ -154,14 +162,19 @@ end
 # Calculates de CRC32 hash of a big file, by processing it by parts.
 #
 # @param filename The filename of the file to be processed
-# @param chunk_size The file will be processed by this size in bytes
 # @returns The CRC32 hash of the received file.
 # @see crc32()
 #
-def crc32_bigfile(filename, chunk_size = DEFAULT_FILE_CHUNK_SIZE)
+def crc32_by_chunks(filename)
+  # If no custom chunk size is given,
+  # use the default value.
+  chunk_size = $cmd_opts.chunk_size ? $cmd_opts.chunk_size : DEFAULT_FILE_CHUNK_SIZE
+
+  puts "#{filename}: reading file by chunks of #{chunk_size}." if DEBUG
+
   hash = 0;
   open(filename, "rb") do |f|
-    f.each_chunk_partial(chunk_size) do |chunk|
+    f.each_chunk(chunk_size) do |chunk|
       #
       # Processes the opened file by reading it in chunks
       # of the received value; if no value is received, it
@@ -182,22 +195,47 @@ def crc32_bigfile(filename, chunk_size = DEFAULT_FILE_CHUNK_SIZE)
 end
 
 #
+# Calculates the CRC32 hash of the received file
+# reading the whole file into memory.
+#
+# @param filename the name of the file to be processed
+# @returns the CRC32 hash of the received file
+#
+def crc32_single_read(filename)
+  puts "#{filename}: trying to calculate hash in single read mode" if DEBUG
+
+  format_hash(Zlib.crc32(open(filename).read()))
+end
+
+#
 # @param filename The filename of the file to be processed
 # @returns The uppercase string of the received file's CRC32 hash value.
-# @see crc32_bigfile
+# @see crc32_by_chunks
 #
 def crc32(filename)
-  format_hash(Zlib.crc32(open(filename).read()))
+  # Determine the reading method to be used.
+  $cmd_opts.single_read ? crc32_single_read(filename) : crc32_by_chunks(filename)
 rescue => detail
   case detail.message
   when "file too big for single read"
-    puts "Big file; calculating in chunks..."
-    crc32_bigfile(filename)
+    puts "#{filename}: big file; calculating in chunks" if DEBUG
+
+    crc32_by_chunks(filename)
   else
     puts detail
   end
 end
 
+#
+# Apply the received hash and delimiter, if any,
+# to the received filename.
+#
+# @param filename
+# @param hash
+# @param delimiter
+# @return the filename with the received hash,
+#         separated by the optional delimiter.
+#
 def get_hashed_filename(filename, hash, delimiter)
   suffix = File.extname(filename)
   base = File.basename(filename, suffix)
@@ -205,56 +243,53 @@ def get_hashed_filename(filename, hash, delimiter)
   "#{base}#{delimiter}[#{hash}]#{suffix}"
 end
 
+#
+# Determines if the hash of the received file is correct.
+#
+# @param filename the name of the file with the hash to test.
+# @returns boolean true if the hash is correct; false otherwise.
+#
 def hash_ok?(filename)
-  hash = crc32(filename)
-
-  true & filename.match(hash)
+  # Calculate the hash of the file,
+  # and match it against its filename.
+  true & filename.match(crc32(filename))
 end
 
-def generate(opts, filenames)
-
-  # Keep only valid filenames.
-  filenames.select!(&:file?)
-
+def generate()
   # When skipping hashed filenames,
   # keep only filenames without hash.
-  filenames.select!(&:not_hashed?) if opts[:skip]
+  $filenames.select!(&:not_hashed?) if $cmd_opts.skip
 
-  filenames.each do |filename|
+  $filenames.each do |filename|
     hash = crc32(filename)
-    hashed_filename = get_hashed_filename(filename, hash, opts.delimiter)
+    hashed_filename = get_hashed_filename(filename, hash, $cmd_opts.delimiter)
     
     # Unless running quietly,
     # show the user what is happenning.
-    puts "#{filename} renamed to #{hashed_filename}" unless opts[:quiet]
+    puts "#{filename} renamed to #{hashed_filename}" unless $cmd_opts.quiet
 
     # Unless in dry run mode,
     # rename the file.
-    File.rename(filename, hashed_filename) unless opts[:dry_run]
+    File.rename(filename, hashed_filename) unless $cmd_opts.dry_run
   end
 end
 
-def check(opts, filenames)
-  
+def check()
   # Variables to keep count.
-  # file_count, ok_count, fail_count = 0, 0, 0
-  file_count = ok_count = fail_count = 0
-
-  # Keep only valid filenames.
-  filenames.select!(&:file?)
+  file_count, ok_count, fail_count = 0, 0, 0
 
   # Unless in force mode,
   # keep only filenames with a valid hash.
-  filenames.select!(&:hashed?) unless opts[:force]
+  $filenames.select!(&:hashed?) unless $cmd_opts.force
 
-  filenames.each do |filename|
+  $filenames.each do |filename|
     file_count += 1
     if hash_ok?(filename)
       ok_count += 1
 
       # When running verbosely,
       # show OK files.
-      puts "#{filename} [OK]" if opts[:verbose]
+      puts "#{filename} [OK]" if $cmd_opts.verbose
     else
       fail_count += 1
 
@@ -263,6 +298,7 @@ def check(opts, filenames)
     end
   end
 
+  # Show the results of the process.
   puts "Total: #{file_count} / OK: #{ok_count} / Fail: #{fail_count}"
 end
 
@@ -275,30 +311,45 @@ global_opts = Trollop::options do
   stop_on SUB_COMMANDS
 end
 
+verbose_explain     = "Show what is happenning during the process"
+single_read_explain = "Read the whole file in memory; do not split it in smaller chunks. If the file is too large, chunks will be used instead"
+chunk_size_explain  = "Split the files in chunks of this size in bytes for reading"
+
 cmd = ARGV.shift # get the subcommand
-cmd_opts = case cmd
+$cmd_opts = case cmd
   when "generate" # parse generate options
     Trollop::options do
       opt :skip, "Skip files already hashed"
       opt :delimiter, "Character to separate the hash from the filename", {:default => DEFAULT_DELIMITER}
-      opt :dry_run, "Don't actually do anything.", :short => "-n"
-      opt :quiet, "Run without showing progress."
+      opt :dry_run, "Don't actually do anything", :short => "-n"
+      opt :quiet, "Run without showing progress"
+      opt :single_read, single_read_explain
+      opt :chunk_size, chunk_size_explain, :type => :int
+      opt :verbose, verbose_explain
     end
   when "check" # parse check options
     Trollop::options do
-      opt :verbose, "Print extra information."
-      opt :force, "Check files with no apparent hash present"
+      opt :verbose, verbose_explain
+      opt :force, "Check files with no apparent hash present. Will be deprecated in future version."
+      opt :single_read, single_read_explain
+      opt :chunk_size, chunk_size_explain, :type => :int
     end
   else
     Trollop::die "unknown subcommand #{cmd.inspect}"
   end
 
 # Check mutually exclusive options.
-Trollop::die "--dry-run and --quiet are mutually exclusive!" if cmd == "generate" and cmd_opts[:dry_run] and cmd_opts[:quiet]
+Trollop::die "--quiet and --verbose are mutually exclusive!" if cmd == "generate" and $cmd_opts[:quiet] and $cmd_opts[:verbose]
+Trollop::die "--dry-run and --quiet are mutually exclusive!" if cmd == "generate" and $cmd_opts[:dry_run] and $cmd_opts[:quiet]
+Trollop::die "--single-read and --chunk-size are mutually exclusive!" if $cmd_opts[:single_read] and $cmd_opts[:chunk_size]
+
+# Get the list of filenames to work with.
+# Keep only the valid ones.
+$filenames = ARGV.select(&:file?)
 
 case cmd
 when "generate"
-  generate(cmd_opts, ARGV)
+  generate()
 when "check"
-  check(cmd_opts, ARGV)
+  check()
 end
